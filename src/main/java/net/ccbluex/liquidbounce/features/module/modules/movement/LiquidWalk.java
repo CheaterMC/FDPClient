@@ -1,163 +1,198 @@
 /*
  * FDPClient Hacked Client
  * A free open source mixin-based injection hacked client for Minecraft using Minecraft Forge by LiquidBounce.
- * https://github.com/UnlegitMC/FDPClient/
+ * https://github.com/CheaterMC/FDPClient/
  */
-package net.ccbluex.liquidbounce.features.module.modules.movement;
+package net.ccbluex.liquidbounce.features.module.modules.movement
 
-import net.ccbluex.liquidbounce.event.*;
-import net.ccbluex.liquidbounce.features.module.Module;
-import net.ccbluex.liquidbounce.features.module.ModuleCategory;
-import net.ccbluex.liquidbounce.features.module.ModuleInfo;
-import net.ccbluex.liquidbounce.utils.block.BlockUtils;
-import net.ccbluex.liquidbounce.value.BoolValue;
-import net.ccbluex.liquidbounce.value.FloatValue;
-import net.ccbluex.liquidbounce.value.ListValue;
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockLiquid;
-import net.minecraft.block.material.Material;
-import net.minecraft.init.Blocks;
-import net.minecraft.network.play.client.C03PacketPlayer;
-import net.minecraft.util.AxisAlignedBB;
-import net.minecraft.util.BlockPos;
+import net.ccbluex.liquidbounce.event.*
+import net.ccbluex.liquidbounce.features.module.Module
+import net.ccbluex.liquidbounce.features.module.ModuleCategory
+import net.ccbluex.liquidbounce.features.module.ModuleInfo
+import net.ccbluex.liquidbounce.utils.MovementUtils
+import net.ccbluex.liquidbounce.utils.block.BlockUtils
+import net.ccbluex.liquidbounce.value.BoolValue
+import net.ccbluex.liquidbounce.value.FloatValue
+import net.ccbluex.liquidbounce.value.ListValue
+import net.minecraft.block.BlockLiquid
+import net.minecraft.block.material.Material
+import net.minecraft.init.Blocks
+import net.minecraft.network.play.client.C03PacketPlayer
+import net.minecraft.util.AxisAlignedBB
+import net.minecraft.util.BlockPos
 
 @ModuleInfo(name = "LiquidWalk", category = ModuleCategory.MOVEMENT)
-public class LiquidWalk extends Module {
-    public final ListValue modeValue = new ListValue("Mode", new String[] {"Vanilla", "NCP", "AAC", "AAC3.3.11", "AACFly", "Spartan", "Dolphin", "Legit"}, "NCP");
-    private final BoolValue noJumpValue = new BoolValue("NoJump", false);
+class LiquidWalk : Module() {
+    val modeValue = ListValue("Mode", arrayOf("Vanilla", "NCP", "Jump", "AAC", "AACFly", "AAC3.3.11", "AAC4.2.1", "Horizon1.4.6", "Twilight", "Matrix", "Dolphin", "Legit"), "Vanilla")
+    private val noJumpValue = BoolValue("NoJump", false)
+    private val jumpMotionValue = FloatValue("JumpMotion", 0.5f, 0.1f, 1f)
+        .displayable { modeValue.get().equals("Jump", ignoreCase = true) || modeValue.get().equals("AACFly", ignoreCase = true) }
 
-    private final FloatValue aacFlyValue = (FloatValue) new FloatValue("AACFlyMotion", 0.5F, 0.1F, 1F).displayable(() -> modeValue.get().equalsIgnoreCase("AACFly"));
+    private var nextTick = false
 
-    private boolean nextTick;
+    private fun isLiquidBlock(bb: AxisAlignedBB = mc.thePlayer.entityBoundingBox):Boolean{
+        return BlockUtils.collideBlock(bb) { it is BlockLiquid }
+    }
 
     @EventTarget
-    public void onUpdate(final UpdateEvent event) {
-        if(mc.thePlayer == null || mc.thePlayer.isSneaking() || !mc.thePlayer.isInWater())
-            return;
+    fun onUpdate(event: UpdateEvent?) {
+        if (mc.thePlayer == null || mc.thePlayer.isSneaking)
+            return
 
-        switch(modeValue.get().toLowerCase()) {
-            case "ncp":
-            case "vanilla":
-                if(BlockUtils.collideBlock(mc.thePlayer.getEntityBoundingBox(), block -> block instanceof BlockLiquid) && mc.thePlayer.isInsideOfMaterial(Material.air) && !mc.thePlayer.isSneaking())
-                    mc.thePlayer.motionY = 0.08D;
-                break;
-            case "aac":
-                final BlockPos blockPos = mc.thePlayer.getPosition().down();
+        val blockPos = mc.thePlayer.position.down()
 
-                if(!mc.thePlayer.onGround && BlockUtils.getBlock(blockPos) == Blocks.water) {
-                    if(!mc.thePlayer.isSprinting()) {
-                        mc.thePlayer.motionX *= 0.99999;
-                        mc.thePlayer.motionY *= 0.0;
-                        mc.thePlayer.motionZ *= 0.99999;
-
-                        if(mc.thePlayer.isCollidedHorizontally)
-                            mc.thePlayer.motionY = (int) (mc.thePlayer.posY - (int) (mc.thePlayer.posY - 1)) / 8F;
-                    }else{
-                        mc.thePlayer.motionX *= 0.99999;
-                        mc.thePlayer.motionY *= 0.0;
-                        mc.thePlayer.motionZ *= 0.99999;
-
-                        if(mc.thePlayer.isCollidedHorizontally)
-                            mc.thePlayer.motionY = (int) (mc.thePlayer.posY - (int) (mc.thePlayer.posY - 1)) / 8F;
+        when (modeValue.get().toLowerCase()) {
+            "ncp" -> {
+                if (isLiquidBlock() && mc.thePlayer.isInsideOfMaterial(Material.air)){
+                    mc.thePlayer.motionY = 0.08
+                }
+            }
+            "jump" -> {
+                if(BlockUtils.getBlock(blockPos) === Blocks.water && mc.thePlayer.onGround){
+                    mc.thePlayer.motionY=jumpMotionValue.get().toDouble()
+                }
+            }
+            "aac" -> {
+                if (!mc.thePlayer.onGround && BlockUtils.getBlock(blockPos) === Blocks.water || mc.thePlayer.isInWater) {
+                    if (!mc.thePlayer.isSprinting) {
+                        mc.thePlayer.motionX *= 0.99999
+                        mc.thePlayer.motionY *= 0.0
+                        mc.thePlayer.motionZ *= 0.99999
+                        if (mc.thePlayer.isCollidedHorizontally)
+                            mc.thePlayer.motionY = ((mc.thePlayer.posY - (mc.thePlayer.posY - 1).toInt()).toInt() / 8f).toDouble()
+                    } else {
+                        mc.thePlayer.motionX *= 0.99999
+                        mc.thePlayer.motionY *= 0.0
+                        mc.thePlayer.motionZ *= 0.99999
+                        if (mc.thePlayer.isCollidedHorizontally)
+                            mc.thePlayer.motionY = ((mc.thePlayer.posY - (mc.thePlayer.posY - 1).toInt()).toInt() / 8f).toDouble()
                     }
-
-                    if(mc.thePlayer.fallDistance >= 4)
-                        mc.thePlayer.motionY = -0.004;
-                    else if(mc.thePlayer.isInWater())
-                        mc.thePlayer.motionY = 0.09;
+                    if (mc.thePlayer.fallDistance >= 4)
+                        mc.thePlayer.motionY = -0.004 else if (mc.thePlayer.isInWater) mc.thePlayer.motionY = 0.09
                 }
-
-                if(mc.thePlayer.hurtTime != 0)
-                    mc.thePlayer.onGround = false;
-                break;
-            case "spartan":
-                if(mc.thePlayer.isCollidedHorizontally) {
-                    mc.thePlayer.motionY += 0.15;
-                    return;
+                if (mc.thePlayer.hurtTime != 0)
+                    mc.thePlayer.onGround = false
+            }
+            "matrix" -> {
+                if (mc.thePlayer.isInWater) {
+                    mc.gameSettings.keyBindJump.pressed = false
+                    if (mc.thePlayer.isCollidedHorizontally) {
+                        mc.thePlayer.motionY = +0.09
+                        return
+                    }
+                    val block = BlockUtils.getBlock(BlockPos(mc.thePlayer.posX, mc.thePlayer.posY + 1, mc.thePlayer.posZ))
+                    val blockUp = BlockUtils.getBlock(BlockPos(mc.thePlayer.posX, mc.thePlayer.posY + 1.1, mc.thePlayer.posZ))
+                    if (blockUp is BlockLiquid) {
+                        mc.thePlayer.motionY = 0.1
+                    } else if (block is BlockLiquid) {
+                        mc.thePlayer.motionY = 0.0
+                    }
+                    mc.thePlayer.motionX *= 1.15
+                    mc.thePlayer.motionZ *= 1.15
                 }
-
-                final Block block = BlockUtils.getBlock(new BlockPos(mc.thePlayer.posX, mc.thePlayer.posY + 1, mc.thePlayer.posZ));
-                final Block blockUp = BlockUtils.getBlock(new BlockPos(mc.thePlayer.posX, mc.thePlayer.posY + 1.1D, mc.thePlayer.posZ));
-
-                if(blockUp instanceof BlockLiquid) {
-                    mc.thePlayer.motionY = 0.1D;
-                }else if(block instanceof BlockLiquid) {
-                    mc.thePlayer.motionY = 0;
+            }
+            "aac3.3.11" -> {
+                if (mc.thePlayer.isInWater) {
+                    mc.thePlayer.motionX *= 1.17
+                    mc.thePlayer.motionZ *= 1.17
+                    if (mc.thePlayer.isCollidedHorizontally){
+                        mc.thePlayer.motionY = 0.24
+                    } else if (mc.theWorld.getBlockState(BlockPos(mc.thePlayer.posX, mc.thePlayer.posY + 1.0, mc.thePlayer.posZ)).block !== Blocks.air){
+                        mc.thePlayer.motionY += 0.04
+                    }
                 }
-
-                mc.thePlayer.onGround = true;
-                mc.thePlayer.motionX *= 1.085;
-                mc.thePlayer.motionZ *= 1.085;
-                break;
-            case "aac3.3.11":
-                mc.thePlayer.motionX *= 1.17D;
-                mc.thePlayer.motionZ *= 1.17D;
-
-                if(mc.thePlayer.isCollidedHorizontally)
-                    mc.thePlayer.motionY = 0.24;
-                else if(mc.theWorld.getBlockState(new BlockPos(mc.thePlayer.posX, mc.thePlayer.posY + 1.0D, mc.thePlayer.posZ)).getBlock() != Blocks.air)
-                    mc.thePlayer.motionY += 0.04D;
-                break;
-
-            case "dolphin":
-                mc.thePlayer.motionY += 0.03999999910593033;
-                break;
-
-        }
-    }
-
-    @EventTarget
-    public void onMove(final MoveEvent event) {
-        if ("aacfly".equalsIgnoreCase(modeValue.get()) && mc.thePlayer.isInWater()) {
-            event.setY(aacFlyValue.get());
-            mc.thePlayer.motionY = aacFlyValue.get();
-        }
-    }
-
-    @EventTarget
-    public void onBlockBB(final BlockBBEvent event) {
-        if(mc.thePlayer == null || mc.thePlayer.getEntityBoundingBox() == null)
-            return;
-
-        if(event.getBlock() instanceof BlockLiquid && !BlockUtils.collideBlock(mc.thePlayer.getEntityBoundingBox(), block -> block instanceof BlockLiquid) && !mc.thePlayer.isSneaking()) {
-            switch(modeValue.get().toLowerCase()) {
-                case "ncp":
-                case "vanilla":
-                    event.setBoundingBox(AxisAlignedBB.fromBounds(event.getX(), event.getY(), event.getZ(), event.getX() + 1, event.getY() + 1, event.getZ() + 1));
-                    break;
+            }
+            "dolphin" -> {
+                if (mc.thePlayer.isInWater)
+                    mc.thePlayer.motionY += 0.03999999910593033
+            }
+            "aac4.2.1" -> {
+                if (!mc.thePlayer.onGround && BlockUtils.getBlock(blockPos) === Blocks.water || mc.thePlayer.isInWater) {
+                    mc.thePlayer.motionY *= 0.0
+                    mc.thePlayer.jumpMovementFactor = 0.08f
+                    if (mc.thePlayer.fallDistance > 0){
+                        return
+                    } else if (mc.thePlayer.isInWater) {
+                        mc.gameSettings.keyBindJump.pressed = true
+                    }
+                }
+            }
+            "horizon1.4.6" -> {
+                mc.gameSettings.keyBindJump.pressed = mc.thePlayer.isInWater
+                if (mc.thePlayer.isInWater) {
+                    MovementUtils.strafe()
+                    if (MovementUtils.isMoving() && !mc.thePlayer.onGround) {
+                        mc.thePlayer.motionY += 0.13
+                    }
+                }
+            }
+            "twilight" -> {
+                if (mc.thePlayer.isInWater) {
+                    mc.thePlayer.motionX *= 1.04
+                    mc.thePlayer.motionZ *= 1.04
+                    MovementUtils.strafe()
+                }
             }
         }
     }
 
     @EventTarget
-    public void onPacket(final PacketEvent event) {
-        if(mc.thePlayer == null || !modeValue.get().equalsIgnoreCase("NCP"))
-            return;
+    fun onMove(event: MoveEvent) {
+        if(!mc.thePlayer.isInWater)
+            return
 
-        if(event.getPacket() instanceof C03PacketPlayer) {
-            final C03PacketPlayer packetPlayer = (C03PacketPlayer) event.getPacket();
-
-            if(BlockUtils.collideBlock(new AxisAlignedBB(mc.thePlayer.getEntityBoundingBox().maxX, mc.thePlayer.getEntityBoundingBox().maxY, mc.thePlayer.getEntityBoundingBox().maxZ, mc.thePlayer.getEntityBoundingBox().minX, mc.thePlayer.getEntityBoundingBox().minY - 0.01D, mc.thePlayer.getEntityBoundingBox().minZ), block -> block instanceof BlockLiquid)) {
-                nextTick = !nextTick;
-
-                if(nextTick) packetPlayer.y -= 0.001D;
+        when (modeValue.get().toLowerCase()) {
+            "aacfly" -> {
+                event.y = jumpMotionValue.get().toDouble()
+                mc.thePlayer.motionY = jumpMotionValue.get().toDouble()
+            }
+            "twilight" -> {
+                event.y = 0.01
+                mc.thePlayer.motionY = 0.01
             }
         }
     }
 
     @EventTarget
-    public void onJump(final JumpEvent event) {
+    fun onBlockBB(event: BlockBBEvent) {
+        if (mc.thePlayer == null || mc.thePlayer.entityBoundingBox == null)
+            return
+
+        if (event.block is BlockLiquid && !isLiquidBlock() && !mc.thePlayer.isSneaking) {
+            when (modeValue.get().toLowerCase()) {
+                "ncp","vanilla","jump" -> {
+                    event.boundingBox = AxisAlignedBB.fromBounds(event.x.toDouble(), event.y.toDouble(), event.z.toDouble(), (event.x + 1).toDouble(), (event.y + 1).toDouble(), (event.z + 1).toDouble())
+                }
+            }
+        }
+    }
+
+    @EventTarget
+    fun onPacket(event: PacketEvent) {
+        if (mc.thePlayer == null || !modeValue.get().equals("NCP", ignoreCase = true))
+            return
+
+        if (event.packet is C03PacketPlayer) {
+            if (isLiquidBlock(AxisAlignedBB(mc.thePlayer.entityBoundingBox.maxX, mc.thePlayer.entityBoundingBox.maxY,
+                    mc.thePlayer.entityBoundingBox.maxZ, mc.thePlayer.entityBoundingBox.minX, mc.thePlayer.entityBoundingBox.minY - 0.01,
+                    mc.thePlayer.entityBoundingBox.minZ))) {
+                nextTick = !nextTick
+                if (nextTick)
+                    event.packet.y -= 0.001
+            }
+        }
+    }
+
+    @EventTarget
+    fun onJump(event: JumpEvent) {
         if (mc.thePlayer == null)
-            return;
+            return
 
-        final Block block = BlockUtils.getBlock(new BlockPos(mc.thePlayer.posX, mc.thePlayer.posY - 0.01, mc.thePlayer.posZ));
-
-        if (noJumpValue.get() && block instanceof BlockLiquid)
-            event.cancelEvent();
+        val block = BlockUtils.getBlock(BlockPos(mc.thePlayer.posX, mc.thePlayer.posY - 0.01, mc.thePlayer.posZ))
+        if (noJumpValue.get() && block is BlockLiquid)
+            event.cancelEvent()
     }
 
-    @Override
-    public String getTag() {
-        return modeValue.get();
-    }
+    override val tag: String
+        get() = modeValue.get()
 }

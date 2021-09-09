@@ -1,7 +1,7 @@
 /*
  * FDPClient Hacked Client
  * A free open source mixin-based injection hacked client for Minecraft using Minecraft Forge by LiquidBounce.
- * https://github.com/UnlegitMC/FDPClient/
+ * https://github.com/CheaterMC/FDPClient/
  */
 package net.ccbluex.liquidbounce.injection.forge.mixins.client;
 
@@ -106,7 +106,7 @@ public abstract class MixinMinecraft {
     private void startGame(CallbackInfo callbackInfo) throws AccessDeniedException {
         if(PCLChecker.INSTANCE.fullCheck(this.mcDataDir)){
             Display.destroy();
-            String warnStr="Plain Craft Launcher is NOT supported with this client, please switch another Minecraft Launcher!";
+            String warnStr="PlainCraft Launcher isn't supported with this client, please use another Minecraft Launcher!";
             JOptionPane.showMessageDialog(null, warnStr, "Alert", JOptionPane.ERROR_MESSAGE);
             throw new AccessDeniedException(warnStr);
         }
@@ -172,9 +172,7 @@ public abstract class MixinMinecraft {
     @Inject(method = "clickMouse", at = @At("HEAD"))
     private void clickMouse(CallbackInfo callbackInfo) {
         CPSCounter.registerClick(CPSCounter.MouseButton.LEFT);
-
-        if (LiquidBounce.moduleManager.getModule(AutoClicker.class).getState())
-            leftClickCounter = 0;
+        leftClickCounter = 0;
     }
 
     @Inject(method = "middleClickMouse", at = @At("HEAD"))

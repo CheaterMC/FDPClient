@@ -1,7 +1,7 @@
 /*
  * FDPClient Hacked Client
  * A free open source mixin-based injection hacked client for Minecraft using Minecraft Forge by LiquidBounce.
- * https://github.com/UnlegitMC/FDPClient/
+ * https://github.com/CheaterMC/FDPClient/
  */
 package net.ccbluex.liquidbounce.injection.forge.mixins.entity;
 
@@ -96,7 +96,7 @@ public abstract class MixinEntityLivingBase extends MixinEntity {
         final LiquidWalk liquidWalk = LiquidBounce.moduleManager.getModule(LiquidWalk.class);
 
         if(liquidWalk.getState() && !isJumping && !isSneaking() && isInWater() &&
-                liquidWalk.modeValue.get().equalsIgnoreCase("Legit")) {
+                liquidWalk.getModeValue().get().equalsIgnoreCase("Legit")) {
             this.updateAITick();
         }
     }
